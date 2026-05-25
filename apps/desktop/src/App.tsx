@@ -6,11 +6,16 @@ import { SchedulerView } from "./views/SchedulerView";
 import { HistoryView } from "./views/HistoryView";
 import { AlertsView } from "./views/AlertsView";
 import { DestinationsView } from "./views/DestinationsView";
+import { Equalizer } from "./components/panels/Equalizer";
 import { useStudioStore } from "./store/studioStore";
 import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
 function App() {
+  if (window.location.search.includes('view=eq')) {
+    return <Equalizer />;
+  }
+
   const { fetchDevices, setAudioLevel, setStreamStatusState, initConvexStream, activeView } = useStudioStore();
 
   useEffect(() => {

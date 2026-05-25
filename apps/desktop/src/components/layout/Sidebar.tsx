@@ -10,8 +10,8 @@ export function Sidebar() {
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'streams', label: 'Streams', icon: <PlaySquare className="w-4 h-4" />, isSub: true },
-    { id: 'studio', label: 'Studio (Live)', icon: <Video className="w-4 h-4" /> },
+    { id: 'studio', label: 'Studio', icon: <Video className="w-4 h-4" /> },
+    { id: 'streams', label: 'Streams', icon: <PlaySquare className="w-4 h-4" /> },
     { id: 'scheduler', label: 'Scheduler', icon: <Calendar className="w-4 h-4" /> },
     { id: 'history', label: 'History', icon: <History className="w-4 h-4" /> },
     { id: 'notifications', label: 'Alerts', icon: <Bell className="w-4 h-4" /> },
