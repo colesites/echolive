@@ -1,4 +1,5 @@
 import React from 'react';
+import { GoLiveModal } from '../panels/GoLiveModal';
 import { useStudioStore } from '../../store/studioStore';
 import { Button } from '../ui/button';
 import { Play, Square, Settings, MonitorUp, Camera, LayoutTemplate, RotateCcw, Loader2 } from 'lucide-react';
@@ -88,24 +89,32 @@ export function TopControls() {
           {isRecording ? <Square className="w-4 h-4 fill-current mr-2" /> : <MonitorUp className="w-4 h-4 mr-2" />}
           {isRecording ? "Stop REC" : "Record"}
         </Button>
-        <Button
-          variant={isLive ? "destructive" : isConnecting ? "secondary" : "default"}
-          onClick={toggleLive}
-          disabled={isConnecting}
-          className={cn(
-            "min-w-[120px] justify-start shadow-md transition-all", 
-            isLive ? "bg-red-600 hover:bg-red-700" : isConnecting ? "bg-secondary text-muted-foreground cursor-not-allowed" : "bg-primary hover:bg-primary/90"
-          )}
-        >
-          {isConnecting ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-          ) : isLive ? (
-            <Square className="w-4 h-4 fill-current mr-2" />
-          ) : (
-            <Play className="w-4 h-4 mr-2" />
-          )}
-          {isConnecting ? "Connecting..." : isLive ? "End Stream" : "Go Live"}
-        </Button>
+        {isConnecting || isLive ? (
+          <Button
+            variant={isLive ? "destructive" : "secondary"}
+            onClick={toggleLive}
+            disabled={isConnecting}
+            className={cn(
+              "min-w-[120px] justify-start shadow-md transition-all", 
+              isLive ? "bg-red-600 hover:bg-red-700" : "bg-secondary text-muted-foreground cursor-not-allowed"
+            )}
+          >
+            {isConnecting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Square className="w-4 h-4 fill-current mr-2" />
+            )}
+            {isConnecting ? "Connecting..." : "End Stream"}
+          </Button>
+        ) : (
+          <GoLiveModal 
+            onStart={(data) => {
+              console.log("Starting stream with data:", data);
+              // Store metadata if needed, then trigger live
+              toggleLive();
+            }} 
+          />
+        )}
         <Button variant="ghost" size="icon" title="Settings" className="ml-2">
           <Settings className="w-5 h-5" />
         </Button>

@@ -31,6 +31,10 @@ export type AudioChannel = {
 };
 
 interface StudioState {
+  // Navigation
+  activeView: 'studio' | 'dashboard' | 'streams' | 'scheduler' | 'history' | 'notifications' | 'multistream';
+  setActiveView: (view: 'studio' | 'dashboard' | 'streams' | 'scheduler' | 'history' | 'notifications' | 'multistream') => void;
+
   // Phase 1/2 Basic state
   isLive: boolean;
   isRecording: boolean;
@@ -76,6 +80,9 @@ interface StudioState {
 }
 
 export const useStudioStore = create<StudioState>((set, get) => ({
+  activeView: 'dashboard',
+  setActiveView: (view) => set({ activeView: view }),
+  
   isLive: false,
   isRecording: false,
   isConnecting: false,

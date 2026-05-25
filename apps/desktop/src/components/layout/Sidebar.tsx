@@ -1,16 +1,18 @@
 import React from 'react';
+import { useStudioStore } from '../../store/studioStore';
 import { Button } from '../ui/button';
-import { Calendar, History, Bell, LayoutDashboard, Share2, Video } from 'lucide-react';
+import { Calendar, History, Bell, LayoutDashboard, Share2, Video, PlaySquare } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 
 export function Sidebar() {
-  const [activeItem, setActiveItem] = React.useState('studio');
+  const { activeView, setActiveView } = useStudioStore();
 
   const navItems = [
-    { id: 'studio', label: 'Studio', icon: <Video className="w-4 h-4" /> },
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
-    { id: 'schedule', label: 'Scheduler', icon: <Calendar className="w-4 h-4" /> },
+    { id: 'streams', label: 'Streams', icon: <PlaySquare className="w-4 h-4" />, isSub: true },
+    { id: 'studio', label: 'Studio (Live)', icon: <Video className="w-4 h-4" /> },
+    { id: 'scheduler', label: 'Scheduler', icon: <Calendar className="w-4 h-4" /> },
     { id: 'history', label: 'History', icon: <History className="w-4 h-4" /> },
     { id: 'notifications', label: 'Alerts', icon: <Bell className="w-4 h-4" /> },
     { id: 'multistream', label: 'Destinations', icon: <Share2 className="w-4 h-4" /> },
@@ -32,17 +34,17 @@ export function Sidebar() {
           {navItems.map((item) => (
             <Button
               key={item.id}
-              variant={activeItem === item.id ? 'secondary' : 'ghost'}
+              variant={activeView === item.id ? 'secondary' : 'ghost'}
               className={cn(
-                "w-full justify-start h-12",
-                activeItem === item.id ? "bg-primary/20 text-primary hover:bg-primary/30" : "text-muted-foreground"
+                "w-full justify-start h-12 relative",
+                activeView === item.id ? "bg-primary/20 text-primary hover:bg-primary/30" : "text-muted-foreground"
               )}
-              onClick={() => setActiveItem(item.id)}
+              onClick={() => setActiveView(item.id as any)}
             >
-              <div className="w-6 flex justify-center shrink-0">
+              <div className="w-6 flex justify-center shrink-0 z-10">
                 {item.icon}
               </div>
-              <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              <span className="ml-3 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                 {item.label}
               </span>
             </Button>

@@ -1,11 +1,17 @@
 import React, { useEffect } from "react";
 import { StudioView } from "./views/StudioView";
+import { DashboardView } from "./views/DashboardView";
+import { StreamsView } from "./views/StreamsView";
+import { SchedulerView } from "./views/SchedulerView";
+import { HistoryView } from "./views/HistoryView";
+import { AlertsView } from "./views/AlertsView";
+import { DestinationsView } from "./views/DestinationsView";
 import { useStudioStore } from "./store/studioStore";
 import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
 function App() {
-  const { fetchDevices, setAudioLevel, setStreamStatusState, initConvexStream } = useStudioStore();
+  const { fetchDevices, setAudioLevel, setStreamStatusState, initConvexStream, activeView } = useStudioStore();
 
   useEffect(() => {
     fetchDevices();
@@ -39,7 +45,27 @@ function App() {
     };
   }, [fetchDevices, setAudioLevel, setStreamStatusState]);
 
-  return <StudioView />;
+  const renderView = () => {
+    switch (activeView) {
+      case 'dashboard':
+        return <DashboardView />;
+      case 'streams':
+        return <StreamsView />;
+      case 'scheduler':
+        return <SchedulerView />;
+      case 'history':
+        return <HistoryView />;
+      case 'notifications':
+        return <AlertsView />;
+      case 'multistream':
+        return <DestinationsView />;
+      case 'studio':
+      default:
+        return <StudioView />;
+    }
+  };
+
+  return renderView();
 }
 
 export default App;
