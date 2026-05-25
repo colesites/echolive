@@ -1,0 +1,18 @@
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: echolive-mediamtx
+    restart: unless-stopped
+    # Explicit port mapping — `network_mode: host` is broken on macOS/Windows
+    # (Docker Desktop runs a Linux VM, so host networking can't bridge to the
+    # actual host). On Linux you could use host networking instead.
+    ports:
+      - "1935:1935"   # RTMP ingest
+      - "8888:8888"   # HLS playback
+      - "9997:9997"   # Read-only API (status / paths)
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - mediamtx-recordings:/recordings
+
+volumes:
+  mediamtx-recordings:

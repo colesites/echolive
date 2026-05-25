@@ -1,0 +1,37 @@
+# Production stack: MediaMTX + Caddy (auto-TLS reverse proxy).
+#
+# Caddy terminates TLS at https://${STREAM_DOMAIN} and proxies HLS to MediaMTX.
+# RTMP stays on :1935 (plain TCP) — RTMP is unencrypted by spec; we'll switch
+# desktop to RTMPS or SRT once Phase 2 lands.
+#
+# Required env (see .env.example):
+#   STREAM_DOMAIN   e.g. stream.echolive.app
+#   ACME_EMAIL      contact email for Let's Encrypt
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: echolive-mediamtx
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./mediamtx-prod.yml:/mediamtx.yml:ro
+      - mediamtx-recordings:/recordings
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: echolive-caddy
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      STREAM_DOMAIN: ${STREAM_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  mediamtx-recordings:
+  caddy-data:
+  caddy-config:

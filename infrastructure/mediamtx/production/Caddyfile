@@ -1,0 +1,21 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Public HLS endpoint with auto-TLS.
+# CORS open so the Next.js player (any origin) can fetch playlists+segments.
+{$STREAM_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Access-Control-Allow-Origin "*"
+		Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		Access-Control-Allow-Headers "Range, Content-Type"
+		Access-Control-Expose-Headers "Content-Length, Content-Range"
+		# HLS playlists must not be cached aggressively
+		Cache-Control "no-cache"
+	}
+
+	# MediaMTX HLS listens on :8888
+	reverse_proxy localhost:8888
+}

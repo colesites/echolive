@@ -1,0 +1,39 @@
+###############################################
+# Echo Live — MediaMTX (production, Phase 1)  #
+###############################################
+
+logLevel: info
+logDestinations: [stdout]
+
+# RTMP ingest (plain — Caddy doesn't proxy this; firewall :1935 open).
+rtmp: yes
+rtmpAddress: :1935
+
+# HLS — Caddy reverse-proxies https://${STREAM_DOMAIN}/ to here.
+# Production is HTTPS via Caddy, so `lowLatency` is actually viable here.
+# Keep `fmp4` for now (matches dev, universal compatibility). Switch to
+# `lowLatency` later if you want sub-2s latency.
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigins: ['*']
+hlsVariant: fmp4
+hlsSegmentCount: 7
+hlsSegmentDuration: 2s
+
+# Internal read-only API. Bind to localhost only — never expose to the
+# internet. Used by ops + by `bun run infra:status` over SSH tunnel.
+api: yes
+apiAddress: 127.0.0.1:9997
+
+webrtc: no
+rtsp: no
+srt: no
+
+paths:
+  # Wildcard regex: any `live/<streamKey>` path. Convex mints 32-byte
+  # random keys so guessing one is infeasible. CP2b will tighten this with
+  # an externalAuthenticationURL → Convex check.
+  "~^live/.+$":
+    source: publisher
+    # TODO(Phase 2): runOnPublish → POST to Convex to flip status=live.
+    # TODO(Phase 2): runOnUnpublish → POST to Convex to flip status=ended.

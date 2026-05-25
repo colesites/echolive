@@ -1,67 +1,73 @@
-const CONVEX_URL = "http://localhost:3001";
+import { api } from "@backend/convex/_generated/api";
+import type { Id } from "@backend/convex/_generated/dataModel";
+import { convex, env } from "../lib/convex";
 
-export interface StreamDocument {
-  _id: string;
-  _creationTime: number;
+export type StreamId = Id<"streams">;
+export type StorageId = Id<"_storage">;
+
+export interface StartedStream {
+  streamId: StreamId;
+  slug: string;
+  streamKey: string;
+  rtmpUrl: string;
+  hlsUrl: string;
+  shareUrl: string;
+}
+
+/**
+ * Upload a cover image to Convex Storage, returning the storage id. Pass
+ * the id into `startStream` to bind it to the new stream session.
+ */
+export async function uploadCover(file: File): Promise<StorageId> {
+  const uploadUrl = await convex.mutation(
+    api.streams.generateCoverUploadUrl,
+    {},
+  );
+  const res = await fetch(uploadUrl, {
+    method: "POST",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!res.ok) {
+    throw new Error(`Cover upload failed: ${res.status} ${res.statusText}`);
+  }
+  const { storageId } = (await res.json()) as { storageId: StorageId };
+  return storageId;
+}
+
+/**
+ * Create a brand-new stream session + mint its key. Returns URLs for the
+ * desktop to pass to FFmpeg and to display as a share link.
+ */
+export async function startStream(args: {
   title: string;
-  isLive: boolean;
-  listeners: number;
-  startedAt?: number;
-}
-
-/**
- * Calls a Convex query over HTTP.
- */
-async function convexQuery<T>(funcName: string, args: Record<string, unknown> = {}): Promise<T> {
-  const url = `${CONVEX_URL}/api/query/${funcName}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(args),
+  coverStorageId?: StorageId;
+}): Promise<StartedStream> {
+  return await convex.mutation(api.streams.startStream, {
+    title: args.title,
+    coverStorageId: args.coverStorageId,
+    rtmpHost: env.rtmpHost,
+    hlsHost: env.hlsHost,
+    webHost: env.webHost,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Convex query ${funcName} failed: ${response.statusText} - ${errorText}`);
-  }
-
-  const result = await response.json();
-  // Convex HTTP API query returns the value directly, or wrapped in an object
-  return result as T;
 }
 
-/**
- * Calls a Convex mutation over HTTP.
- */
-async function convexMutation<T>(funcName: string, args: Record<string, unknown> = {}): Promise<T> {
-  const url = `${CONVEX_URL}/api/mutation/${funcName}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(args),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Convex mutation ${funcName} failed: ${response.statusText} - ${errorText}`);
-  }
-
-  const result = await response.json();
-  return result as T;
+export async function markPublishStarted(streamId: StreamId): Promise<void> {
+  await convex.mutation(api.streams.markPublishStarted, { streamId });
 }
 
-export async function fetchLiveStream(): Promise<StreamDocument> {
-  return convexQuery<StreamDocument>("streams/getLiveStream");
+export async function endStream(streamId: StreamId): Promise<void> {
+  await convex.mutation(api.streams.endStream, { streamId });
 }
 
-export async function setLiveStreamStatus(id: string, isLive: boolean, title?: string): Promise<void> {
-  return convexMutation<void>("streams/updateStreamStatus", { id, isLive, title });
+/** Emergency cleanup — flips every stuck "live"/"connecting" stream to ended. */
+export async function endAllLive(): Promise<{ ended: number }> {
+  return await convex.mutation(api.streams.endAllLive, {});
 }
 
-export async function setLiveStreamTitle(id: string, title: string): Promise<void> {
-  return convexMutation<void>("streams/updateStreamTitle", { id, title });
+export async function updateTitle(
+  streamId: StreamId,
+  title: string,
+): Promise<void> {
+  await convex.mutation(api.streams.updateTitle, { streamId, title });
 }

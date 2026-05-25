@@ -1,44 +1,39 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --background: #0f0c1b;
-  --foreground: #f8fafc;
+@theme {
+  --color-background: #0a0a0a;
+  --color-foreground: #fafafa;
+  --color-accent: #dc2626;
+  --color-accent-hover: #ef4444;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
+html,
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  margin: 0;
-  padding: 0;
+  background: var(--color-background);
+  color: var(--color-foreground);
 }
 
 @keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
   to {
     transform: rotate(360deg);
   }
 }
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+}
 
 @keyframes audio-bar {
-  0%, 100% {
+  0%,
+  100% {
     transform: scaleY(0.3);
   }
   50% {
-    transform: scaleY(1.0);
+    transform: scaleY(1);
   }
 }
-
-.animate-spin-slow {
-  animation: spin-slow 15s linear infinite;
-}
-
 .animate-audio-bar {
   animation: audio-bar 1.2s ease-in-out infinite;
   transform-origin: bottom;
 }
-

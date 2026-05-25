@@ -16,39 +16,44 @@ function App() {
     return <Equalizer />;
   }
 
-  const { fetchDevices, setAudioLevel, setStreamStatusState, initConvexStream, activeView } = useStudioStore();
+  const {
+    fetchDevices,
+    setAudioLevel,
+    initConvexStream,
+    handleStreamFailure,
+    activeView,
+  } = useStudioStore();
 
   useEffect(() => {
     fetchDevices();
     initConvexStream();
 
-    let unlistenLevel: (() => void) | null = null;
-    let unlistenStatus: (() => void) | null = null;
+    const unlisteners: Array<() => void> = [];
 
     const setupListeners = async () => {
-      unlistenLevel = await listen<number>("audio-level", (event) => {
-        setAudioLevel(event.payload);
-      });
-
-      unlistenStatus = await listen<string>("stream-status", (event) => {
-        const status = event.payload;
-        if (status === "live") {
-          setStreamStatusState(true, false);
-        } else if (status === "connecting") {
-          setStreamStatusState(false, true);
-        } else {
-          setStreamStatusState(false, false);
-        }
-      });
+      unlisteners.push(
+        await listen<number>("audio-level", (event) => {
+          setAudioLevel(event.payload);
+        }),
+      );
+      unlisteners.push(
+        await listen<string>("stream-error", (event) => {
+          void handleStreamFailure(event.payload);
+        }),
+      );
+      // Note: `stream-status` events from Rust are informational. The store
+      // is the source of truth for `isLive` / `isConnecting` — set by goLive
+      // / endLive / handleStreamFailure. Don't auto-flip from events here,
+      // or a transient Rust `Idle` will yank the UI back to OFFLINE while
+      // the store is still mid-transition.
     };
 
-    setupListeners();
+    void setupListeners();
 
     return () => {
-      if (unlistenLevel) unlistenLevel();
-      if (unlistenStatus) unlistenStatus();
+      for (const u of unlisteners) u();
     };
-  }, [fetchDevices, setAudioLevel, setStreamStatusState]);
+  }, [fetchDevices, setAudioLevel, initConvexStream, handleStreamFailure]);
 
   const renderView = () => {
     switch (activeView) {

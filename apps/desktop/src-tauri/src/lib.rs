@@ -51,12 +51,19 @@ fn toggle_mute(channel_id: String, state: State<'_, AppState>) -> Result<bool, A
 }
 
 /// Starts the audio streaming pipeline (mic capture → mixer → FFmpeg → RTMP).
+/// `rtmp_url` must be the full RTMP target including the stream key
+/// (e.g. `rtmp://host:1935/live/<streamKey>`). The desktop fetches this
+/// from Convex via `streams.startStream` before calling.
 #[tauri::command]
 async fn start_stream(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
+    rtmp_url: String,
 ) -> Result<(), AppError> {
-    // Check if already streaming
+    if rtmp_url.is_empty() {
+        return Err(AppError::Stream("rtmp_url is required".into()));
+    }
+
     {
         let status = state.stream_status.lock().unwrap_or_else(|e| e.into_inner());
         if *status == StreamStatus::Live || *status == StreamStatus::Connecting {
@@ -64,24 +71,11 @@ async fn start_stream(
         }
     }
 
-    // Update status to connecting
     {
         let mut status = state.stream_status.lock().unwrap_or_else(|e| e.into_inner());
         *status = StreamStatus::Connecting;
     }
     let _ = app.emit("stream-status", StreamStatus::Connecting);
-
-    let device = {
-        let d = state.selected_device.lock().unwrap_or_else(|e| e.into_inner());
-        d.clone()
-    };
-
-    let channels_state = {
-        let channels = state.channels.lock().unwrap_or_else(|e| e.into_inner());
-        Arc::new(std::sync::Mutex::new(channels.clone()))
-    };
-
-    let rtmp_url = "rtmp://localhost:1935/live/stream".to_string();
 
     // Callbacks for status and level updates
     let app_status = app.clone();

@@ -1,6 +1,8 @@
 use ringbuf::traits::Split;
 use ringbuf::HeapRb;
 use std::sync::{Arc, Mutex};
+use tauri::Emitter;
+use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::{mpsc, oneshot};
 
@@ -96,9 +98,12 @@ pub async fn start_stream(
     let sample_rate = capture::default_sample_rate()?;
     let num_channels = capture::default_channels()?;
 
-    let (mut _rx, mut child) = app.shell().sidecar("ffmpeg")
+    let (mut rx, mut child) = app.shell().sidecar("ffmpeg")
         .map_err(|e| AppError::Stream(format!("Failed to configure FFmpeg sidecar: {}", e)))?
         .args([
+            // Quieter logs, but keep errors flowing on stderr.
+            "-hide_banner",
+            "-loglevel", "error",
             "-f", "s16le",
             "-ar", &sample_rate.to_string(),
             "-ac", &num_channels.to_string(),
@@ -112,6 +117,54 @@ pub async fn start_stream(
         .map_err(|e| AppError::Stream(format!("Failed to spawn FFmpeg sidecar: {}", e)))?;
 
     on_status(StreamStatus::Live);
+
+    // Drain FFmpeg's stdout/stderr so the user can see WHY it failed
+    // (e.g. "Connection refused" when MediaMTX is down). Each stderr line is
+    // forwarded to the frontend as a `stream-log` event; an unexpected exit
+    // emits a `stream-error` event with the final terminated reason.
+    let app_logs = app.clone();
+    tokio::spawn(async move {
+        let mut last_stderr: Vec<String> = Vec::with_capacity(8);
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stderr(line) => {
+                    let text = String::from_utf8_lossy(&line).trim().to_string();
+                    if !text.is_empty() {
+                        eprintln!("[echolive::ffmpeg] {}", text);
+                        let _ = app_logs.emit("stream-log", &text);
+                        last_stderr.push(text);
+                        if last_stderr.len() > 8 {
+                            last_stderr.remove(0);
+                        }
+                    }
+                }
+                CommandEvent::Stdout(line) => {
+                    let text = String::from_utf8_lossy(&line).trim().to_string();
+                    if !text.is_empty() {
+                        let _ = app_logs.emit("stream-log", &text);
+                    }
+                }
+                CommandEvent::Terminated(payload) => {
+                    // Code 0 = normal exit (we killed it). Anything else is a real failure.
+                    let code = payload.code.unwrap_or(-1);
+                    if code != 0 {
+                        let reason = if last_stderr.is_empty() {
+                            format!("FFmpeg exited with code {}", code)
+                        } else {
+                            last_stderr.join("\n")
+                        };
+                        let _ = app_logs.emit("stream-error", &reason);
+                    }
+                    break;
+                }
+                CommandEvent::Error(err) => {
+                    let _ = app_logs.emit("stream-error", &err.to_string());
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
 
     let (abort_tx, mut abort_rx) = oneshot::channel::<()>();
 

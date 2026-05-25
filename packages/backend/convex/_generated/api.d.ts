@@ -8,7 +8,10 @@
  * @module
  */
 
-import type * as messages from "../messages.js";
+import type * as chat from "../chat.js";
+import type * as lib_slug from "../lib/slug.js";
+import type * as lib_streamKey from "../lib/streamKey.js";
+import type * as presence from "../presence.js";
 import type * as streams from "../streams.js";
 
 import type {
@@ -18,7 +21,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  messages: typeof messages;
+  chat: typeof chat;
+  "lib/slug": typeof lib_slug;
+  "lib/streamKey": typeof lib_streamKey;
+  presence: typeof presence;
   streams: typeof streams;
 }>;
 

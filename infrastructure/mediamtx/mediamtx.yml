@@ -1,0 +1,64 @@
+###############################################
+# Echo Live — MediaMTX configuration (Phase 1) #
+###############################################
+
+logLevel: info
+logDestinations: [stdout]
+
+###############################################
+# Global protocol settings
+###############################################
+
+# RTMP ingest from the Tauri desktop app
+rtmp: yes
+rtmpAddress: :1935
+
+# HLS playback for the Next.js web player.
+# `lowLatency` (LL-HLS) needs HTTP/2 which browsers won't do over plain
+# http://localhost — only over HTTPS. We use `fmp4` here: ~3-5s latency,
+# CMAF segments, works in every browser over plain HTTP. Switch to
+# `lowLatency` once you're behind HTTPS in production.
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigins: ['*']
+hlsVariant: fmp4
+hlsSegmentCount: 7
+hlsSegmentDuration: 2s
+
+# WebRTC reserved for Phase 7 ultra-low-latency; off for now
+webrtc: no
+
+# Read-only API for ingest health checks
+api: yes
+apiAddress: :9997
+
+# Dev: disable MediaMTX's internal auth entirely. Safe locally because all
+# ports are loopback-only via Docker Desktop. Production keeps auth on.
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: api
+      - action: publish
+      - action: read
+
+# SRT / RTSP off for Phase 1
+rtsp: no
+srt: no
+
+###############################################
+# Paths
+###############################################
+
+# `live/<streamKey>` — wildcard so each creator pushes to their own key.
+# Phase 1: open publish (local dev). Auth tightening lands in CP2 via
+# `runOnPublish` hook against Convex/Better Auth.
+paths:
+  # Wildcard: any path matching `live/<anything>`. MediaMTX's path-regex
+  # syntax prefixes the whole pattern with `~`, hence `~^live/.+$`.
+  "~^live/.+$":
+    source: publisher
+    # publishUser / publishPass intentionally unset for local dev.
+    # TODO(CP2): externalAuthenticationURL once Convex auth lands.

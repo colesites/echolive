@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,
@@ -15,8 +15,30 @@ import { cn } from "../../lib/utils";
 
 type StreamMode = "video+audio" | "audio-only" | "both";
 
+export interface GoLivePayload {
+  mode: StreamMode;
+  title: string;
+  category: string;
+  description: string;
+  coverDataUrl: string | null;
+  coverFile: File | null;
+  audioCoverDataUrl: string | null;
+  audioCoverFile: File | null;
+}
+
 interface GoLiveModalProps {
-  onStart: (data: any) => void;
+  onStart: (data: GoLivePayload) => void | Promise<void>;
+}
+
+const MAX_COVER_BYTES = 4 * 1024 * 1024; // 4 MB
+
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 export function GoLiveModal({ onStart }: GoLiveModalProps) {
@@ -28,21 +50,71 @@ export function GoLiveModal({ onStart }: GoLiveModalProps) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Just Chatting");
   const [description, setDescription] = useState("");
+  const [coverDataUrl, setCoverDataUrl] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [audioCoverDataUrl, setAudioCoverDataUrl] = useState<string | null>(null);
+  const [audioCoverFile, setAudioCoverFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const audioCoverInputRef = useRef<HTMLInputElement>(null);
+
+  const pickCover = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setDataUrl: (v: string | null) => void,
+    setFile: (v: File | null) => void,
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Cover must be an image.");
+      return;
+    }
+    if (file.size > MAX_COVER_BYTES) {
+      setError("Cover must be under 4 MB.");
+      return;
+    }
+    setError(null);
+    setDataUrl(await fileToDataUrl(file));
+    setFile(file);
+  };
 
   const handleNext = () => {
     if (mode) setStep(2);
   };
 
-  const handleGoLive = () => {
-    onStart({ mode, title, category, description });
-    setOpen(false);
-    // Reset state after close
-    setTimeout(() => {
-      setStep(1);
-      setMode(null);
-      setTitle("");
-      setDescription("");
-    }, 300);
+  const handleGoLive = async () => {
+    if (!mode) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await onStart({
+        mode,
+        title,
+        category,
+        description,
+        coverDataUrl,
+        coverFile,
+        audioCoverDataUrl,
+        audioCoverFile,
+      });
+      setOpen(false);
+      setTimeout(() => {
+        setStep(1);
+        setMode(null);
+        setTitle("");
+        setDescription("");
+        setCoverDataUrl(null);
+        setCoverFile(null);
+        setAudioCoverDataUrl(null);
+        setAudioCoverFile(null);
+      }, 300);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isAudioOnly = mode === "audio-only";
@@ -139,23 +211,47 @@ export function GoLiveModal({ onStart }: GoLiveModalProps) {
                       <option>Podcast</option>
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Image</label>
-                    <button className="w-full h-[50px] border border-dashed border-zinc-700 bg-zinc-900/30 rounded-lg flex items-center justify-center gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-colors">
-                      <UploadCloud className="w-4 h-4" />
-                      Upload {isAudioOnly ? "1:1" : "16:9"}
-                    </button>
-                  </div>
+                  <CoverPicker
+                    label={`Cover Image (${isAudioOnly ? "1:1" : "16:9"})`}
+                    aspect={isAudioOnly ? "1:1" : "16:9"}
+                    value={coverDataUrl}
+                    onClear={() => {
+                      setCoverDataUrl(null);
+                      setCoverFile(null);
+                    }}
+                    onPick={() => coverInputRef.current?.click()}
+                  />
+                  <input
+                    ref={coverInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => pickCover(e, setCoverDataUrl, setCoverFile)}
+                  />
                 </div>
 
                 {isBoth && (
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Audio Cover (1:1)</label>
-                    <button className="w-full h-[50px] border border-dashed border-zinc-700 bg-zinc-900/30 rounded-lg flex items-center justify-center gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800/50 transition-colors">
-                      <UploadCloud className="w-4 h-4" />
-                      Upload 1:1 Image
-                    </button>
-                  </div>
+                  <>
+                    <CoverPicker
+                      label="Audio Cover (1:1)"
+                      aspect="1:1"
+                      value={audioCoverDataUrl}
+                      onClear={() => {
+                        setAudioCoverDataUrl(null);
+                        setAudioCoverFile(null);
+                      }}
+                      onPick={() => audioCoverInputRef.current?.click()}
+                    />
+                    <input
+                      ref={audioCoverInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) =>
+                        pickCover(e, setAudioCoverDataUrl, setAudioCoverFile)
+                      }
+                    />
+                  </>
                 )}
 
                 <div className="space-y-1">
@@ -171,6 +267,12 @@ export function GoLiveModal({ onStart }: GoLiveModalProps) {
             )}
           </AnimatePresence>
         </div>
+
+        {error && (
+          <div className="mx-6 mb-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            {error}
+          </div>
+        )}
 
         <div className="p-6 pt-0 flex justify-between items-center bg-zinc-950/80 border-t border-zinc-800/50 mt-4 h-20">
           {step === 2 ? (
@@ -191,15 +293,71 @@ export function GoLiveModal({ onStart }: GoLiveModalProps) {
             </Button>
           ) : (
             <Button
-              className="bg-red-600 hover:bg-red-500 text-white rounded-full px-8 font-bold shadow-[0_0_20px_rgba(220,38,38,0.3)] hover:shadow-[0_0_30px_rgba(220,38,38,0.5)] transition-all"
+              className="bg-red-600 hover:bg-red-500 text-white rounded-full px-8 font-bold shadow-[0_0_20px_rgba(220,38,38,0.3)] hover:shadow-[0_0_30px_rgba(220,38,38,0.5)] transition-all disabled:opacity-60"
               onClick={handleGoLive}
+              disabled={submitting || !title.trim()}
             >
-              Start Streaming
+              {submitting ? "Starting…" : "Start Streaming"}
             </Button>
           )}
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface CoverPickerProps {
+  label: string;
+  aspect: "1:1" | "16:9";
+  value: string | null;
+  onPick: () => void;
+  onClear: () => void;
+}
+
+function CoverPicker({ label, aspect, value, onPick, onClear }: CoverPickerProps) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        {label}
+      </label>
+      {value ? (
+        <div className="relative h-[50px] w-full overflow-hidden rounded-lg border border-zinc-800">
+          <img
+            src={value}
+            alt="Cover preview"
+            className={cn(
+              "h-full w-full object-cover",
+              aspect === "1:1" ? "object-center" : "object-center",
+            )}
+          />
+          <div className="absolute inset-0 flex items-center justify-end gap-2 bg-black/40 px-3 opacity-0 transition-opacity hover:opacity-100">
+            <button
+              type="button"
+              onClick={onPick}
+              className="text-xs font-medium text-white hover:underline"
+            >
+              Replace
+            </button>
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-xs font-medium text-red-300 hover:underline"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onPick}
+          className="flex h-[50px] w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 bg-zinc-900/30 text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-white"
+        >
+          <UploadCloud className="h-4 w-4" />
+          Upload {aspect}
+        </button>
+      )}
+    </div>
   );
 }
 

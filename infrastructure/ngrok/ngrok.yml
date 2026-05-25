@@ -1,0 +1,17 @@
+# Single web tunnel. ngrok free tier gives one public URL per account,
+# so we route everything through the web origin: the Next.js app at
+# / and /a/live/<slug>, plus MediaMTX HLS at /hls/* (rewritten by
+# Next's config — see apps/web/next.config.js).
+#
+# Usage:
+#   bun run tunnel
+#
+# Add your authtoken once via:  ngrok config add-authtoken <token>
+
+version: "3"
+
+tunnels:
+  web:
+    addr: 3000
+    proto: http
+    schemes: [https]

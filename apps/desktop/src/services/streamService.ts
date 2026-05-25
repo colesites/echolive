@@ -11,8 +11,8 @@ export async function listAudioDevices(): Promise<AudioDeviceInfo[]> {
   return invoke<AudioDeviceInfo[]>('list_audio_devices');
 }
 
-export async function startStream(): Promise<void> {
-  return invoke('start_stream');
+export async function startStream(rtmpUrl: string): Promise<void> {
+  return invoke('start_stream', { rtmpUrl });
 }
 
 export async function stopStream(): Promise<void> {

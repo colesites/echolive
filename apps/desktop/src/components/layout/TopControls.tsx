@@ -1,16 +1,16 @@
-import React from 'react';
 import { GoLiveModal } from '../panels/GoLiveModal';
 import { useStudioStore } from '../../store/studioStore';
 import { Button } from '../ui/button';
-import { Play, Square, Settings, MonitorUp, Camera, LayoutTemplate, RotateCcw, Loader2 } from 'lucide-react';
+import { Square, Settings, MonitorUp, Camera, LayoutTemplate, RotateCcw, Loader2, Copy, Check } from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '../../lib/utils';
 import { motion } from 'framer-motion';
 
 export function TopControls() {
-  const { 
+  const {
     isLive, isRecording, isVirtualCameraOn, isReplayBufferOn, isStudioMode, isConnecting,
-    toggleLive, toggleRecording, toggleVirtualCamera, toggleReplayBuffer, toggleStudioMode,
-    streamTitle, streamDuration 
+    goLive, endLive, toggleRecording, toggleVirtualCamera, toggleReplayBuffer, toggleStudioMode,
+    streamTitle, streamDuration, liveSession, lastError, clearError,
   } = useStudioStore();
 
   const formatDuration = (seconds: number) => {
@@ -21,6 +21,22 @@ export function TopControls() {
   };
 
   return (
+    <>
+    {lastError && (
+      <div className="flex items-start justify-between gap-3 border-b border-red-900/50 bg-red-950/40 px-6 py-2 text-sm text-red-200">
+        <div className="min-w-0 flex-1">
+          <span className="font-semibold">Stream failed:</span>{" "}
+          <span className="font-mono text-xs opacity-90 break-all">{lastError}</span>
+        </div>
+        <button
+          type="button"
+          onClick={clearError}
+          className="text-red-300 hover:text-white text-xs shrink-0"
+        >
+          Dismiss
+        </button>
+      </div>
+    )}
     <header className="flex items-center justify-between px-6 py-4 bg-card border-b border-border shadow-sm z-10 shrink-0">
       <div className="flex items-center gap-4">
         <div className="flex flex-col">
@@ -90,29 +106,31 @@ export function TopControls() {
           {isRecording ? "Stop REC" : "Record"}
         </Button>
         {isConnecting || isLive ? (
-          <Button
-            variant={isLive ? "destructive" : "secondary"}
-            onClick={toggleLive}
-            disabled={isConnecting}
-            className={cn(
-              "min-w-[120px] justify-start shadow-md transition-all", 
-              isLive ? "bg-red-600 hover:bg-red-700" : "bg-secondary text-muted-foreground cursor-not-allowed"
-            )}
-          >
-            {isConnecting ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Square className="w-4 h-4 fill-current mr-2" />
-            )}
-            {isConnecting ? "Connecting..." : "End Stream"}
-          </Button>
+          <>
+            {liveSession && <ShareUrlPill url={liveSession.shareUrl} />}
+            <Button
+              variant={isLive ? "destructive" : "secondary"}
+              onClick={() => { void endLive(); }}
+              disabled={isConnecting}
+              className={cn(
+                "min-w-[120px] justify-start shadow-md transition-all",
+                isLive ? "bg-red-600 hover:bg-red-700" : "bg-secondary text-muted-foreground cursor-not-allowed"
+              )}
+            >
+              {isConnecting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Square className="w-4 h-4 fill-current mr-2" />
+              )}
+              {isConnecting ? "Connecting..." : "End Stream"}
+            </Button>
+          </>
         ) : (
-          <GoLiveModal 
-            onStart={(data) => {
-              console.log("Starting stream with data:", data);
-              // Store metadata if needed, then trigger live
-              toggleLive();
-            }} 
+          <GoLiveModal
+            onStart={async (data) => {
+              const title = data.title.trim() || streamTitle;
+              await goLive({ title, coverFile: data.coverFile });
+            }}
           />
         )}
         <Button variant="ghost" size="icon" title="Settings" className="ml-2">
@@ -120,5 +138,34 @@ export function TopControls() {
         </Button>
       </div>
     </header>
+    </>
+  );
+}
+
+function ShareUrlPill({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error('[echolive] Clipboard write failed:', err);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title="Copy listener URL"
+      className="flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900/60 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500 hover:text-white transition-colors max-w-[280px]"
+    >
+      <span className="truncate font-mono">{url}</span>
+      {copied ? (
+        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+      ) : (
+        <Copy className="w-3.5 h-3.5 shrink-0" />
+      )}
+    </button>
   );
 }
