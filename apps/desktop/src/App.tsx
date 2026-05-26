@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { StudioView } from "./views/StudioView";
 import { DashboardView } from "./views/DashboardView";
 import { StreamsView } from "./views/StreamsView";
@@ -9,6 +9,7 @@ import { DestinationsView } from "./views/DestinationsView";
 import { Equalizer } from "./components/panels/Equalizer";
 import { useStudioStore } from "./store/studioStore";
 import { listen } from "@tauri-apps/api/event";
+import { loadToken, saveToken, tokenFromDeepLink } from "./lib/session";
 import "./App.css";
 
 function App() {
@@ -25,8 +26,12 @@ function App() {
   } = useStudioStore();
 
   useEffect(() => {
-    fetchDevices();
-    initConvexStream();
+    // Rehydrate the stored session token into the Convex client BEFORE
+    // any other Convex call so authenticated queries work on first paint.
+    void loadToken().then(() => {
+      fetchDevices();
+      initConvexStream();
+    });
 
     const unlisteners: Array<() => void> = [];
 
@@ -39,6 +44,25 @@ function App() {
       unlisteners.push(
         await listen<string>("stream-error", (event) => {
           void handleStreamFailure(event.payload);
+        }),
+      );
+      // Capture the OAuth callback URL the web app deep-links us with.
+      unlisteners.push(
+        await listen<string>("deep-link", (event) => {
+          const token = tokenFromDeepLink(event.payload);
+          if (token) void saveToken(token);
+        }),
+      );
+      // Loopback HTTP path (dev mode) — Rust's auth_callback emits
+      // `auth-token` with the bearer string directly.
+      unlisteners.push(
+        await listen<string>("auth-token", (event) => {
+          void saveToken(event.payload);
+        }),
+      );
+      unlisteners.push(
+        await listen<string>("auth-error", (event) => {
+          console.error("[echolive] OAuth error:", event.payload);
         }),
       );
       // Note: `stream-status` events from Rust are informational. The store

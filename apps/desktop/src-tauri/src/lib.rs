@@ -1,4 +1,5 @@
 mod audio;
+mod auth_callback;
 mod error;
 mod state;
 mod stream;
@@ -7,6 +8,7 @@ use crate::error::AppError;
 use crate::state::{AppState, AudioDeviceInfo, StreamStatus};
 use std::sync::Arc;
 use tauri::{Emitter, Manager, State};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 /// Lists available audio input devices.
 #[tauri::command]
@@ -152,6 +154,13 @@ fn stop_stream(
     }
 }
 
+/// Spawn the dev-mode OAuth loopback server. Idempotent if the port
+/// is already bound. Returns the port the browser should call back to.
+#[tauri::command]
+fn start_auth_callback_server(app: tauri::AppHandle) -> Result<u16, AppError> {
+    auth_callback::start(app)
+}
+
 /// Sets the selected audio input device. Pass None for default.
 #[tauri::command]
 fn select_audio_device(
@@ -175,6 +184,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
+        // `deep-link` must be initialised before any `setup` hook so
+        // single-instance launches deliver the URL to the running window.
+        .plugin(tauri_plugin_deep_link::init())
         .manage(AppState::new())
         .setup(|app| {
             let handle = app.handle();
@@ -193,6 +206,28 @@ pub fn run() {
                 let mut engine_state = state.audio_engine.lock().unwrap();
                 *engine_state = Some(engine);
             }
+
+            // In bundled builds the URL scheme comes from Info.plist
+            // generated from `tauri.conf.json`. In `tauri dev` there's
+            // no .app bundle, so we tell macOS LaunchServices about the
+            // scheme at runtime. `register_all` is best-effort — if it
+            // fails (e.g. already registered) we just continue.
+            #[cfg(debug_assertions)]
+            {
+                if let Err(e) = app.deep_link().register_all() {
+                    eprintln!("[echolive] deep-link register_all failed: {e}");
+                }
+            }
+
+            // Forward incoming `echolive://...` URLs to the frontend.
+            // Auth callback handling lives in JS (token parsing + storage).
+            let app_handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    let _ = app_handle.emit("deep-link", url.as_str().to_string());
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -205,6 +240,7 @@ pub fn run() {
             stop_stream,
             select_audio_device,
             get_selected_device,
+            start_auth_callback_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,4 +1,3 @@
-import React from 'react';
 import { StudioLayout } from '../components/layout/StudioLayout';
 import { PreviewStage } from '../components/panels/PreviewStage';
 import { SceneSelector } from '../components/panels/SceneSelector';

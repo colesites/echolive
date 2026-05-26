@@ -1,4 +1,5 @@
 import { GoLiveModal } from '../panels/GoLiveModal';
+import { SignInButton } from '../auth/SignInButton';
 import { useStudioStore } from '../../store/studioStore';
 import { Button } from '../ui/button';
 import { Square, Settings, MonitorUp, Camera, LayoutTemplate, RotateCcw, Loader2, Copy, Check } from 'lucide-react';
@@ -133,7 +134,11 @@ export function TopControls() {
             }}
           />
         )}
-        <Button variant="ghost" size="icon" title="Settings" className="ml-2">
+        <div className="mx-1 h-6 w-px bg-border" />
+
+        <SignInButton />
+
+        <Button variant="ghost" size="icon" title="Settings" className="ml-1">
           <Settings className="w-5 h-5" />
         </Button>
       </div>

@@ -1,4 +1,3 @@
-import React from 'react';
 import { StudioLayout } from '../components/layout/StudioLayout';
 import { Card } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { mutation } from "./_generated/server";
 
 const PRESENCE_TTL_MS = 60 * 1000;
 

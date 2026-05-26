@@ -1,4 +1,3 @@
-import React from 'react';
 import { useStudioStore } from '../../store/studioStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';

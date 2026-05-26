@@ -1,4 +1,3 @@
-import React from 'react';
 import { StudioLayout } from '../components/layout/StudioLayout';
 import { Card } from '../components/ui/card';
 import { Users, Video, Clock, TrendingUp } from 'lucide-react';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useStudioStore } from '../../store/studioStore';
 import { Button } from '../ui/button';
 import { Calendar, History, Bell, LayoutDashboard, Share2, Video, PlaySquare } from 'lucide-react';

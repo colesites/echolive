@@ -1,8 +1,7 @@
-import React from 'react';
 import { StudioLayout } from '../components/layout/StudioLayout';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Download, Play, MoreHorizontal, Video, Mic, Radio } from 'lucide-react';
+import { Download, MoreHorizontal, Video, Mic, Radio } from 'lucide-react';
 import { ScrollArea } from '../components/ui/scroll-area';
 
 const MOCK_STREAMS = [

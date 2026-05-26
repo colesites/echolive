@@ -10,7 +10,7 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Radio, MonitorPlay, Mic, Image as ImageIcon, UploadCloud } from "lucide-react";
+import { Radio, MonitorPlay, Mic, UploadCloud } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 type StreamMode = "video+audio" | "audio-only" | "both";

@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@convex-dev/better-auth": "^0.12.2",
+    "better-auth": "^1.6.11",
     "clsx": "^2.1.1",
     "convex": "^1.39.1",
     "hls.js": "^1.6.16",

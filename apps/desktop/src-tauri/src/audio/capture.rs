@@ -2,8 +2,6 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{SampleFormat, StreamConfig};
 use ringbuf::traits::Producer;
 use ringbuf::HeapProd;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 use crate::error::AppError;
 use crate::state::AudioDeviceInfo;
@@ -33,23 +31,12 @@ pub fn list_input_devices() -> Result<Vec<AudioDeviceInfo>, AppError> {
 }
 
 /// Handle for a running audio capture stream.
+///
+/// Dropping the handle stops the underlying cpal stream. The audio engine
+/// `mem::forget`s this on startup because cpal streams are `!Send` on
+/// macOS, so they must live on the thread that created them.
 pub struct CaptureHandle {
     _stream: cpal::Stream,
-    running: Arc<AtomicBool>,
-}
-
-impl CaptureHandle {
-    /// Stops the audio capture.
-    pub fn stop(&self) {
-        self.running.store(false, Ordering::SeqCst);
-    }
-
-    /// Returns a clone of the running flag for cross-thread stop signaling.
-    /// This is needed because `CaptureHandle` is `!Send` (cpal::Stream
-    /// uses raw pointers on macOS), so we can't move it into other threads.
-    pub fn running_flag(&self) -> Arc<AtomicBool> {
-        self.running.clone()
-    }
 }
 
 /// Starts capturing audio from the given device (or default) and writes
@@ -78,9 +65,6 @@ pub fn start_capture(
     let sample_format = supported_config.sample_format();
     let config: StreamConfig = supported_config.into();
 
-    let running = Arc::new(AtomicBool::new(true));
-    let running_clone = running.clone();
-
     let err_fn = |err: cpal::StreamError| {
         eprintln!("[echolive::audio::capture] Stream error: {err}");
     };
@@ -89,10 +73,7 @@ pub fn start_capture(
         SampleFormat::F32 => device.build_input_stream(
             &config,
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                if running_clone.load(Ordering::SeqCst) {
-                    // Push samples, dropping overflow silently
-                    producer.push_slice(data);
-                }
+                producer.push_slice(data);
             },
             err_fn,
             None,
@@ -100,11 +81,9 @@ pub fn start_capture(
         SampleFormat::I16 => device.build_input_stream(
             &config,
             move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                if running_clone.load(Ordering::SeqCst) {
-                    for &sample in data {
-                        let f = sample as f32 / i16::MAX as f32;
-                        let _ = producer.try_push(f);
-                    }
+                for &sample in data {
+                    let f = sample as f32 / i16::MAX as f32;
+                    let _ = producer.try_push(f);
                 }
             },
             err_fn,
@@ -113,11 +92,9 @@ pub fn start_capture(
         SampleFormat::U16 => device.build_input_stream(
             &config,
             move |data: &[u16], _: &cpal::InputCallbackInfo| {
-                if running_clone.load(Ordering::SeqCst) {
-                    for &sample in data {
-                        let f = (sample as f32 / u16::MAX as f32) * 2.0 - 1.0;
-                        let _ = producer.try_push(f);
-                    }
+                for &sample in data {
+                    let f = (sample as f32 / u16::MAX as f32) * 2.0 - 1.0;
+                    let _ = producer.try_push(f);
                 }
             },
             err_fn,
@@ -135,10 +112,7 @@ pub fn start_capture(
         .play()
         .map_err(|e| AppError::Audio(format!("Failed to start capture: {e}")))?;
 
-    Ok(CaptureHandle {
-        _stream: stream,
-        running,
-    })
+    Ok(CaptureHandle { _stream: stream })
 }
 
 /// Returns the default input sample rate (for FFmpeg config).

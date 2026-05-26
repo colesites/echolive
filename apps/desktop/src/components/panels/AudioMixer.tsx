@@ -1,9 +1,8 @@
-import React from 'react';
 import { useStudioStore } from '../../store/studioStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Slider } from '../ui/slider';
 import { Button } from '../ui/button';
-import { Mic, MicOff, Volume2, VolumeX, Settings2, SlidersHorizontal } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { ScrollArea } from '../ui/scroll-area';
 

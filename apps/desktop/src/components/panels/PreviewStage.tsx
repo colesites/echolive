@@ -1,4 +1,3 @@
-import React from 'react';
 import { useStudioStore } from '../../store/studioStore';
 import { Card } from '../ui/card';
 import { Monitor, ArrowRight } from 'lucide-react';
