@@ -1,6 +1,7 @@
 "use client";
 
 import { createAuthClient } from "better-auth/react";
+import { organizationClient } from "better-auth/client/plugins";
 import {
   convexClient,
   crossDomainClient,
@@ -16,7 +17,7 @@ if (!baseURL) {
 
 export const authClient = createAuthClient({
   baseURL,
-  plugins: [convexClient(), crossDomainClient()],
+  plugins: [convexClient(), crossDomainClient(), organizationClient()],
 });
 
 export const { signIn, signUp, signOut, useSession, getSession } = authClient;

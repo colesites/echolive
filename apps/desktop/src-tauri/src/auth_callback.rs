@@ -60,6 +60,7 @@ fn handle_connection(mut stream: TcpStream, app: &AppHandle) -> std::io::Result<
         .unwrap_or("/");
 
     let token = extract_query_param(path, "token");
+    let auth_token = extract_query_param(path, "authToken");
     let error = extract_query_param(path, "error");
 
     let body = if token.is_some() {
@@ -79,7 +80,13 @@ fn handle_connection(mut stream: TcpStream, app: &AppHandle) -> std::io::Result<
     stream.flush()?;
 
     if let Some(t) = token {
-        let _ = app.emit("auth-token", t);
+        // Emit a structured payload so the JS side can save both tokens
+        // atomically. `authToken` is optional — falls back to null.
+        let payload = serde_json::json!({
+            "token": t,
+            "authToken": auth_token,
+        });
+        let _ = app.emit("auth-token", payload);
     } else if let Some(e) = error {
         let _ = app.emit("auth-error", e);
     }

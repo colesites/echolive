@@ -49,3 +49,20 @@ export async function sendVerificationEmail(args: {
 <p><a href="${args.url}">Verify email</a></p>`,
   });
 }
+
+export async function sendOrganizationInvitation(args: {
+  to: string;
+  inviterName: string;
+  organizationName: string;
+  url: string;
+}): Promise<void> {
+  await resend().emails.send({
+    from: fromAddress(),
+    to: args.to,
+    subject: `You're invited to ${args.organizationName} on Echo Live`,
+    text: `${args.inviterName} invited you to join ${args.organizationName} on Echo Live.\n\nAccept the invitation:\n${args.url}\n`,
+    html: `<p><strong>${args.inviterName}</strong> invited you to join <strong>${args.organizationName}</strong> on Echo Live.</p>
+<p><a href="${args.url}">Accept invitation</a></p>
+<p style="font-size:12px;color:#666">If you weren't expecting this, you can safely ignore this email.</p>`,
+  });
+}

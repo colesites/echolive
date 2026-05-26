@@ -41,8 +41,8 @@ export type AudioChannel = {
 
 interface StudioState {
   // Navigation
-  activeView: 'studio' | 'dashboard' | 'streams' | 'scheduler' | 'history' | 'notifications' | 'multistream';
-  setActiveView: (view: 'studio' | 'dashboard' | 'streams' | 'scheduler' | 'history' | 'notifications' | 'multistream') => void;
+  activeView: 'studio' | 'dashboard' | 'streams' | 'scheduler' | 'history' | 'notifications' | 'multistream' | 'organization';
+  setActiveView: (view: 'studio' | 'dashboard' | 'streams' | 'scheduler' | 'history' | 'notifications' | 'multistream' | 'organization') => void;
 
   // Phase 1/2 Basic state
   isLive: boolean;

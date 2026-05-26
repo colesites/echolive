@@ -64,8 +64,7 @@ function CallbackInner() {
           );
         }
 
-        // 2. Mint the Convex JWT (this is what `ConvexHttpClient.setAuth`
-        //    consumes). The crossDomain header is now attached automatically.
+        // 2a. Mint the Convex JWT — used as the bearer on Convex queries.
         const { data: tokenData, error: tokenError } = await authClient.$fetch<{
           token: string;
         }>("/convex/token", { method: "GET" });
@@ -74,18 +73,26 @@ function CallbackInner() {
             `Convex token mint failed: ${tokenError.message ?? tokenError.status}`,
           );
         }
-        const token = tokenData?.token;
+        const convexJwt = tokenData?.token;
+
+        // 2b. Pick up the Better Auth session token (separate from the
+        //     Convex JWT). The desktop uses this to call
+        //     `/api/auth/organization/*` and other auth endpoints that
+        //     the `bearer` plugin authorises via `Authorization: Bearer`.
+        const { data: sessionData } = await authClient.getSession();
+        const authToken = sessionData?.session?.token ?? null;
 
         if (cancelled) return;
-        if (!token) {
-          setStatus("Sign-in completed but no token was issued.");
+        if (!convexJwt) {
+          setStatus("Sign-in completed but no Convex token was issued.");
           return;
         }
 
-        // 3. Hand off to the desktop.
+        // 3. Hand off both tokens to the desktop.
         const redirect = search.get("desktop") ?? DEFAULT_REDIRECT;
         const url = new URL(redirect);
-        url.searchParams.set("token", token);
+        url.searchParams.set("token", convexJwt);
+        if (authToken) url.searchParams.set("authToken", authToken);
         setStatus("Returning you to Echo Live…");
         window.location.href = url.toString();
       } catch (err) {

@@ -6,10 +6,11 @@ import { SchedulerView } from "./views/SchedulerView";
 import { HistoryView } from "./views/HistoryView";
 import { AlertsView } from "./views/AlertsView";
 import { DestinationsView } from "./views/DestinationsView";
+import { OrganizationView } from "./views/OrganizationView";
 import { Equalizer } from "./components/panels/Equalizer";
 import { useStudioStore } from "./store/studioStore";
 import { listen } from "@tauri-apps/api/event";
-import { loadToken, saveToken, tokenFromDeepLink } from "./lib/session";
+import { loadTokens, saveTokens, tokensFromDeepLink } from "./lib/session";
 import "./App.css";
 
 function App() {
@@ -26,9 +27,10 @@ function App() {
   } = useStudioStore();
 
   useEffect(() => {
-    // Rehydrate the stored session token into the Convex client BEFORE
-    // any other Convex call so authenticated queries work on first paint.
-    void loadToken().then(() => {
+    // Rehydrate the stored session tokens (Convex JWT + Better Auth bearer)
+    // into the Convex client BEFORE any other Convex call so authenticated
+    // queries work on first paint.
+    void loadTokens().then(() => {
       fetchDevices();
       initConvexStream();
     });
@@ -49,16 +51,27 @@ function App() {
       // Capture the OAuth callback URL the web app deep-links us with.
       unlisteners.push(
         await listen<string>("deep-link", (event) => {
-          const token = tokenFromDeepLink(event.payload);
-          if (token) void saveToken(token);
+          const t = tokensFromDeepLink(event.payload);
+          if (t.convexJwt) {
+            void saveTokens({
+              convexJwt: t.convexJwt,
+              authToken: t.authToken ?? null,
+            });
+          }
         }),
       );
       // Loopback HTTP path (dev mode) — Rust's auth_callback emits
-      // `auth-token` with the bearer string directly.
+      // `auth-token` with both bearers as a JSON object.
       unlisteners.push(
-        await listen<string>("auth-token", (event) => {
-          void saveToken(event.payload);
-        }),
+        await listen<{ token: string; authToken: string | null }>(
+          "auth-token",
+          (event) => {
+            const { token, authToken } = event.payload;
+            if (token) {
+              void saveTokens({ convexJwt: token, authToken: authToken ?? null });
+            }
+          },
+        ),
       );
       unlisteners.push(
         await listen<string>("auth-error", (event) => {
@@ -93,6 +106,8 @@ function App() {
         return <AlertsView />;
       case 'multistream':
         return <DestinationsView />;
+      case 'organization':
+        return <OrganizationView />;
       case 'studio':
       default:
         return <StudioView />;

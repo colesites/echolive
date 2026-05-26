@@ -1,11 +1,16 @@
 import { betterAuth } from "better-auth/minimal";
+import { organization } from "better-auth/plugins/organization";
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import authConfig from "./auth.config";
-import { sendPasswordResetEmail, sendVerificationEmail } from "./lib/email";
+import {
+  sendOrganizationInvitation,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from "./lib/email";
 
 // Convex runtime provides `process.env`; declared locally so consumers
 // of this file (e.g. the desktop app's type-check) don't need node types.
@@ -63,10 +68,23 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
       },
     },
 
-    // Multi-org + invites land in CP2b.3 (organization plugin). Kept
-    // separate so the schema migration in this checkpoint stays small.
-
     plugins: [
+      organization({
+        // Multi-org: users can belong to multiple orgs, switch via
+        // `setActive`. Roles default to owner/admin/member.
+        allowUserToCreateOrganization: true,
+        organizationLimit: 10,
+        membershipLimit: 100,
+        sendInvitationEmail: async ({ id, email, organization, inviter }) => {
+          const url = `${siteUrl}/auth/accept-invite/${id}`;
+          await sendOrganizationInvitation({
+            to: email,
+            inviterName: inviter.user.name ?? inviter.user.email,
+            organizationName: organization.name,
+            url,
+          });
+        },
+      }),
       crossDomain({ siteUrl }),
       convex({ authConfig }),
     ],
