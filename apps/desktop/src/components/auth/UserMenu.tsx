@@ -10,8 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { authClient, signOut } from "../../lib/authClient";
+import { signOut } from "../../lib/authClient";
+import { convex } from "../../lib/convex";
 import { loadToken, onTokenChange, saveToken } from "../../lib/session";
+import { api } from "@backend/convex/_generated/api";
 
 interface Profile {
   name: string | null;
@@ -169,17 +171,31 @@ function deriveInitials(profile: Profile | null): string {
   return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
+/**
+ * Resolve the signed-in user via Convex. The desktop doesn't carry the
+ * Better Auth cross-domain cookie (that lives in the web browser's
+ * localStorage); what we DO have is the Convex JWT attached to every
+ * ConvexHttpClient request. `api.auth.getCurrentUser` reads `ctx.auth`,
+ * looks up the Better Auth user record, and returns it.
+ */
 async function fetchProfile(): Promise<Profile | null> {
   try {
-    const { data } = await authClient.getSession();
-    const user = data?.user;
+    const user = (await convex.query(api.auth.getCurrentUser, {})) as
+      | {
+          name?: string | null;
+          email?: string | null;
+          image?: string | null;
+        }
+      | null
+      | undefined;
     if (!user) return null;
     return {
       name: user.name ?? null,
       email: user.email ?? null,
       imageUrl: user.image ?? null,
     };
-  } catch {
+  } catch (err) {
+    console.warn("[echolive] fetchProfile failed:", err);
     return null;
   }
 }
