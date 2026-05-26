@@ -1,48 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LogIn, LogOut, User } from "lucide-react";
+import { LogIn } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Button } from "../ui/button";
-import { authClient, signOut } from "../../lib/authClient";
 import { env } from "../../lib/convex";
-import { loadToken, onTokenChange, saveToken } from "../../lib/session";
+import { loadToken, onTokenChange } from "../../lib/session";
 
 const PROD_DEEP_LINK = "echolive://auth/callback";
 
 /**
- * Opens the web sign-in page in the OS default browser.
+ * Topbar entry point for signing in. Renders nothing when the user is
+ * already authenticated — the avatar+dropdown in the sidebar is the
+ * single source of truth for signed-in state.
  *
- * Dev: spins up a loopback HTTP server (port 53682) and uses
- * `http://127.0.0.1:53682/` as the callback. macOS routes the URL to
- * the live dev process, not the installed production .app.
+ * Dev: spins up a loopback HTTP server on a random port and uses
+ * `http://127.0.0.1:<port>/` as the callback so macOS routes the URL
+ * to the running dev binary instead of any installed production .app.
  *
  * Prod: uses the registered `echolive://` URL scheme via the bundle's
- * Info.plist. This works because in prod there's only one .app
- * claiming the scheme.
+ * Info.plist — works because the production .app is the only handler.
  */
 export function SignInButton() {
   const [authed, setAuthed] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    void loadToken().then(async (token) => {
-      setAuthed(!!token);
-      if (token) await refreshProfile(setEmail);
-    });
-    return onTokenChange(async (token) => {
-      setAuthed(!!token);
-      if (token) await refreshProfile(setEmail);
-      else setEmail(null);
-    });
+    void loadToken().then((token) => setAuthed(!!token));
+    return onTokenChange((token) => setAuthed(!!token));
   }, []);
+
+  // Signed in → sidebar UserMenu handles display + sign-out. Nothing here.
+  if (authed) return null;
 
   const onSignIn = async () => {
     setBusy(true);
     try {
-      // Where the desktop ultimately wants the token delivered.
       let desktopRedirect: string;
       if (import.meta.env.DEV) {
         const port = await invoke<number>("start_auth_callback_server");
@@ -52,9 +46,8 @@ export function SignInButton() {
       }
 
       // Better Auth doesn't append a bearer to an arbitrary callback URL.
-      // Route through the web `/auth/callback` page which (a) reads the
-      // session to get the cross-domain bearer, then (b) forwards to the
-      // desktop URL with `?token=...` appended.
+      // Route through `/auth/callback` on the web app, which exchanges the
+      // one-time token + mints the Convex JWT, then redirects here.
       const callbackPage = new URL(
         `${env.authHost.replace(/\/$/, "")}/auth/callback`,
       );
@@ -70,35 +63,6 @@ export function SignInButton() {
     }
   };
 
-  const onSignOut = async () => {
-    setBusy(true);
-    try {
-      await signOut().catch(() => {
-        // Server may have already expired the session; swallow.
-      });
-      await saveToken(null);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (authed) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onSignOut}
-        disabled={busy}
-        title={email ?? "Signed in"}
-        className="text-xs text-zinc-400 hover:text-white"
-      >
-        <User className="mr-1.5 h-3.5 w-3.5" />
-        <span className="max-w-[120px] truncate">{email ?? "Signed in"}</span>
-        <LogOut className="ml-1.5 h-3 w-3 opacity-60" />
-      </Button>
-    );
-  }
-
   return (
     <Button
       variant="outline"
@@ -111,13 +75,4 @@ export function SignInButton() {
       Sign in
     </Button>
   );
-}
-
-async function refreshProfile(setEmail: (v: string | null) => void) {
-  try {
-    const { data } = await authClient.getSession();
-    setEmail(data?.user?.email ?? null);
-  } catch {
-    setEmail(null);
-  }
 }

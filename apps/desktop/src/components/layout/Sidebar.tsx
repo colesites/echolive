@@ -3,6 +3,7 @@ import { Button } from '../ui/button';
 import { Calendar, History, Bell, LayoutDashboard, Share2, Video, PlaySquare } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
+import { UserMenu } from '../auth/UserMenu';
 
 export function Sidebar() {
   const { activeView, setActiveView } = useStudioStore();
@@ -19,13 +20,8 @@ export function Sidebar() {
 
   return (
     <aside className="w-16 hover:w-64 flex flex-col h-full bg-card border-r border-border transition-all duration-300 overflow-hidden group">
-      <div className="h-16 border-b border-border flex items-center justify-center group-hover:justify-start group-hover:px-4 shrink-0 transition-all">
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-          <span className="font-bold text-white text-sm">EL</span>
-        </div>
-        <span className="font-bold text-lg ml-3 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-          Echo Live
-        </span>
+      <div className="h-16 border-b border-border flex items-center px-2 group-hover:px-3 shrink-0 transition-all">
+        <UserMenu collapsed />
       </div>
       
       <ScrollArea className="flex-1 py-4">
